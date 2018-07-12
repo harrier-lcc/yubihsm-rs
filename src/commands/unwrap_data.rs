@@ -15,7 +15,7 @@ pub fn unwrap_data<C: Connector, T: Into<Vec<u8>>>(
     data: T,
 ) -> Result<UnwrapDataResponse, SessionError> {
     let data = data.into();
-    
+
     session.send_encrypted_command(UnwrapDataCommand {
         key_id,
         data,

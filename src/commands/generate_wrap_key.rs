@@ -4,7 +4,7 @@
 
 use super::{Command, Response};
 use {
-    CommandType, Capability, Connector, Domain, ObjectId, ObjectLabel, 
+    CommandType, Capability, Connector, Domain, ObjectId, ObjectLabel,
     Session, SessionError, WrapAlgorithm,
 };
 

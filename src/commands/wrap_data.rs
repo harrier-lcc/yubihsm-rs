@@ -15,7 +15,7 @@ pub fn wrap_data<C: Connector, T: Into<Vec<u8>>>(
     data: T,
 ) -> Result<WrapDataResponse, SessionError> {
     let data = data.into();
-    
+
     session.send_encrypted_command(WrapDataCommand {
         key_id,
         data,
