@@ -2,7 +2,8 @@
 //!
 //! <https://developers.yubico.com/YubiHSM2/Commands/Put_Asymmetric.html>
 
-use super::{Command, PutObjectCommand, Response};
+use super::put_object::PutObjectParams;
+use super::{Command, Response};
 use {
     AsymmetricAlgorithm, Capability, CommandType, Connector, Domain, ObjectId, ObjectLabel,
     Session, SessionError,
@@ -19,7 +20,7 @@ pub fn put_asymmetric_key<C: Connector, T: Into<Vec<u8>>>(
     capabilities: Capability,
     algorithm: AsymmetricAlgorithm,
     key_bytes: T,
-) -> Result<PutAsymmetricKeyResponse, SessionError> {
+) -> Result<ObjectId, SessionError> {
     let data = key_bytes.into();
 
     if data.len() != algorithm.key_len() {
@@ -32,19 +33,29 @@ pub fn put_asymmetric_key<C: Connector, T: Into<Vec<u8>>>(
         );
     }
 
-    session.send_encrypted_command(PutAsymmetricKeyCommand(PutObjectCommand {
-        id: key_id,
-        label,
-        domains,
-        capabilities,
-        algorithm: algorithm.into(),
-        data,
-    }))
+    session
+        .send_encrypted_command(PutAsymmetricKeyCommand {
+            params: PutObjectParams {
+                id: key_id,
+                label,
+                domains,
+                capabilities,
+                algorithm: algorithm.into(),
+            },
+            data,
+        })
+        .map(|response| response.key_id)
 }
 
 /// Request parameters for `commands::put_asymmetric_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct PutAsymmetricKeyCommand(pub(crate) PutObjectCommand);
+pub(crate) struct PutAsymmetricKeyCommand {
+    /// Common parameters to all put object commands
+    pub params: PutObjectParams,
+
+    /// Serialized object
+    pub data: Vec<u8>,
+}
 
 impl Command for PutAsymmetricKeyCommand {
     type ResponseType = PutAsymmetricKeyResponse;
@@ -52,7 +63,7 @@ impl Command for PutAsymmetricKeyCommand {
 
 /// Response from `commands::put_asymmetric_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PutAsymmetricKeyResponse {
+pub(crate) struct PutAsymmetricKeyResponse {
     /// ID of the key
     pub key_id: ObjectId,
 }

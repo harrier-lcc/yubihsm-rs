@@ -1,34 +1,30 @@
-//! Encrypt (wrap) data using a Wrapkey.
+//! Encrypt data (with AES-CCM) using the given wrap key
 //!
-//! <https://developers.yubico.com/YubiHSM2/Commands/Wrap_Data.html>
+//! https://developers.yubico.com/YubiHSM2/Commands/Wrap_Data.html
 
 use super::{Command, Response};
-use {
-    CommandType, Connector, ObjectId, Session,
-    SessionError,
-};
+use {CommandType, Connector, ObjectId, Session, SessionError, WrapNonce, WrappedData};
 
-/// Encrypt (wrap) data using a Wrapkey.
-pub fn wrap_data<C: Connector, T: Into<Vec<u8>>>(
+/// Export an encrypted object from the `YubiHSM2` using the given key-wrapping key
+pub fn wrap_data<C: Connector>(
     session: &mut Session<C>,
-    key_id: ObjectId,
-    data: T,
+    wrap_key_id: ObjectId,
+    plaintext: Vec<u8>,
 ) -> Result<WrapDataResponse, SessionError> {
-    let data = data.into();
-
     session.send_encrypted_command(WrapDataCommand {
-        key_id,
-        data,
+        wrap_key_id,
+        plaintext,
     })
 }
 
 /// Request parameters for `commands::wrap_data`
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct WrapDataCommand {
-    /// Key that use for wrap data
-    pub key_id : ObjectId,
-    /// Data to be wrapped
-    pub data : Vec<u8>,
+    /// ID of the wrap key to encrypt the object with
+    pub wrap_key_id: ObjectId,
+
+    /// Data to be encrypted/wrapped
+    pub plaintext: Vec<u8>,
 }
 
 impl Command for WrapDataCommand {
@@ -36,15 +32,15 @@ impl Command for WrapDataCommand {
 }
 
 /// Response from `commands::wrap_data`
-/// Wrapped data
 #[derive(Serialize, Deserialize, Debug)]
-pub struct WrapDataResponse{
-    /// Wrapped Data by wrapkey
-    pub wrapped_data: Vec<u8>,
+pub struct WrapDataResponse {
+    /// Nonce used to encrypt the wrapped data
+    pub nonce: WrapNonce,
+
+    /// "Wrapped" data encrypted with AES-CCM (including MAC)
+    pub ciphertext: WrappedData,
 }
 
 impl Response for WrapDataResponse {
     const COMMAND_TYPE: CommandType = CommandType::WrapData;
 }
-
-// Further trait and impl for WrapData

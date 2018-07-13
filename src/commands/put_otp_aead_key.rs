@@ -2,7 +2,8 @@
 //!
 //! <https://developers.yubico.com/YubiHSM2/Commands/Put_Asymmetric.html>
 
-use super::{Command, PutObjectCommand, Response};
+use super::put_object::PutObjectParams;
+use super::{Command, Response};
 use {
     Capability, CommandType, Connector, Domain, OTPAlgorithm, ObjectId, ObjectLabel, Session,
     SessionError,
@@ -19,7 +20,7 @@ pub fn put_otp_aead_key<C: Connector, T: Into<Vec<u8>>>(
     capabilities: Capability,
     algorithm: OTPAlgorithm,
     key_bytes: T,
-) -> Result<PutOTPAEADKeyResponse, SessionError> {
+) -> Result<ObjectId, SessionError> {
     let data = key_bytes.into();
 
     if data.len() != algorithm.key_len() {
@@ -32,19 +33,29 @@ pub fn put_otp_aead_key<C: Connector, T: Into<Vec<u8>>>(
         );
     }
 
-    session.send_encrypted_command(PutOTPAEADKeyCommand(PutObjectCommand {
-        id: key_id,
-        label,
-        domains,
-        capabilities,
-        algorithm: algorithm.into(),
-        data,
-    }))
+    session
+        .send_encrypted_command(PutOTPAEADKeyCommand {
+            params: PutObjectParams {
+                id: key_id,
+                label,
+                domains,
+                capabilities,
+                algorithm: algorithm.into(),
+            },
+            data,
+        })
+        .map(|response| response.key_id)
 }
 
 /// Request parameters for `commands::put_otp_aead_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct PutOTPAEADKeyCommand(pub(crate) PutObjectCommand);
+pub(crate) struct PutOTPAEADKeyCommand {
+    /// Common parameters to all put object commands
+    pub params: PutObjectParams,
+
+    /// Serialized object
+    pub data: Vec<u8>,
+}
 
 impl Command for PutOTPAEADKeyCommand {
     type ResponseType = PutOTPAEADKeyResponse;
@@ -52,7 +63,7 @@ impl Command for PutOTPAEADKeyCommand {
 
 /// Response from `commands::put_otp_aead_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PutOTPAEADKeyResponse {
+pub(crate) struct PutOTPAEADKeyResponse {
     /// ID of the key
     pub key_id: ObjectId,
 }

@@ -80,11 +80,15 @@ extern crate uuid;
 /// Error types
 pub mod error;
 
+/// Serde-powered serializers for the `YubiHSM` wire format
+#[macro_use]
+mod serializers;
+
 /// Cryptographic algorithms supported by the `YubiHSM2`
 pub mod algorithm;
 
 /// Object attributes specifying which operations are allowed to be performed
-pub mod capability;
+pub mod capabilities;
 
 /// Commands supported by the `YubiHSM`.
 ///
@@ -99,7 +103,7 @@ pub mod commands;
 pub mod connector;
 
 /// Logical partitions within the `YubiHSM`, allowing several applications to share the device
-pub mod domain;
+pub mod domains;
 
 #[cfg(feature = "mockhsm")]
 /// Software simulation of the `YubiHSM2` for integration testing,
@@ -114,26 +118,24 @@ pub mod object;
 /// Encrypted communication channel to the YubiHSM hardware
 mod securechannel;
 
-/// Serde-powered serializers for the `YubiHSM` wire format
-mod serializers;
-
 /// `YubiHSM2` sessions: primary API for performing HSM operations
 ///
 /// See <https://developers.yubico.com/YubiHSM2/Concepts/Session.html>
 pub mod session;
 
-pub use algorithm::{
-    Algorithm, AsymmetricAlgorithm, AuthAlgorithm, HMACAlgorithm, OTPAlgorithm, OpaqueAlgorithm,
-    WrapAlgorithm,
+pub use algorithm::*;
+pub use capabilities::Capability;
+// Import command functions from all submodules
+pub use commands::{
+    attest_asymmetric::*, blink::*, delete_object::*, device_info::*, echo::*, export_wrapped::*,
+    generate_asymmetric_key::generate_asymmetric_key, generate_wrap_key::generate_wrap_key,
+    get_logs::*, get_object_info::*, get_opaque::*, get_pubkey::*, import_wrapped::*,
+    list_objects::*, put_asymmetric_key::*, put_auth_key::*, put_hmac_key::*, put_opaque::*,
+    put_otp_aead_key::*, put_wrap_key::*, reset::*, sign_ecdsa::*, sign_eddsa::*,
+    storage_status::*, unwrap_data::*, wrap_data::*, CommandType,
 };
-pub use capability::Capability;
-pub use commands::*;
 pub use connector::{Connector, HttpConfig, HttpConnector};
-pub use domain::Domain;
-pub use object::Id as ObjectId;
-pub use object::Label as ObjectLabel;
-pub use object::Origin as ObjectOrigin;
-pub use object::SequenceId;
-pub use object::Type as ObjectType;
+pub use domains::Domain;
+pub use object::*;
 pub use securechannel::{SessionId, StaticKeys};
 pub use session::{Session, SessionError};

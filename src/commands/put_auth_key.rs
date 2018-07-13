@@ -2,7 +2,8 @@
 //!
 //! <https://developers.yubico.com/YubiHSM2/Commands/Put_Authkey.html>
 
-use super::{Command, PutObjectCommand, Response};
+use super::put_object::PutObjectParams;
+use super::{Command, Response};
 use {
     AuthAlgorithm, Capability, CommandType, Connector, Domain, ObjectId, ObjectLabel, Session,
     SessionError,
@@ -20,7 +21,7 @@ pub fn put_auth_key<C: Connector, T: Into<Vec<u8>>>(
     capabilities: Capability,
     algorithm: AuthAlgorithm,
     key_bytes: T,
-) -> Result<PutAuthKeyResponse, SessionError> {
+) -> Result<ObjectId, SessionError> {
     let data = key_bytes.into();
 
     if data.len() != AUTH_KEY_SIZE {
@@ -32,19 +33,29 @@ pub fn put_auth_key<C: Connector, T: Into<Vec<u8>>>(
         );
     }
 
-    session.send_encrypted_command(PutAuthKeyCommand(PutObjectCommand {
-        id: key_id,
-        label,
-        domains,
-        capabilities,
-        algorithm: algorithm.into(),
-        data,
-    }))
+    session
+        .send_encrypted_command(PutAuthKeyCommand {
+            params: PutObjectParams {
+                id: key_id,
+                label,
+                domains,
+                capabilities,
+                algorithm: algorithm.into(),
+            },
+            data,
+        })
+        .map(|response| response.key_id)
 }
 
 /// Request parameters for `commands::put_auth_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct PutAuthKeyCommand(pub(crate) PutObjectCommand);
+pub(crate) struct PutAuthKeyCommand {
+    /// Common parameters to all put object commands
+    pub params: PutObjectParams,
+
+    /// Serialized object
+    pub data: Vec<u8>,
+}
 
 impl Command for PutAuthKeyCommand {
     type ResponseType = PutAuthKeyResponse;
@@ -52,7 +63,7 @@ impl Command for PutAuthKeyCommand {
 
 /// Response from `commands::put_auth_key`
 #[derive(Serialize, Deserialize, Debug)]
-pub struct PutAuthKeyResponse {
+pub(crate) struct PutAuthKeyResponse {
     /// ID of the key
     pub key_id: ObjectId,
 }
