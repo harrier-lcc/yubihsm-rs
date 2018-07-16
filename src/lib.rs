@@ -33,9 +33,9 @@
 //! extern crate yubihsm;
 //! use yubihsm::Session;
 //!
-//! // Default host, port, auth key ID, and password for yubihsm-connector
+//! // Default yubihsm-connector URI, auth key ID, and password for yubihsm-connector
 //! let mut session =
-//!     Session::create_from_password(Default::default(), 1, "password", true).unwrap();
+//!     Session::create_from_password(Default::default(), 1, b"password", true).unwrap();
 //!
 //! // Note: You'll need to create this key first. Run the following from yubihsm-shell:
 //! // `generate asymmetric 0 100 ed25519_test_key 1 asymmetric_sign_eddsa ed25519`
@@ -47,7 +47,7 @@
 #![crate_type = "rlib"]
 #![deny(warnings, missing_docs, trivial_casts, trivial_numeric_casts)]
 #![deny(unsafe_code, unused_import_braces, unused_qualifications)]
-#![doc(html_root_url = "https://docs.rs/yubihsm/0.12.0-alpha1")]
+#![doc(html_root_url = "https://docs.rs/yubihsm/0.13.0")]
 
 extern crate aes;
 #[macro_use]
@@ -80,17 +80,20 @@ extern crate uuid;
 /// Error types
 pub mod error;
 
-/// Serde-powered serializers for the `YubiHSM` wire format
+/// Serde-powered serializers for the `YubiHSM2` wire format
 #[macro_use]
 mod serializers;
 
 /// Cryptographic algorithms supported by the `YubiHSM2`
 pub mod algorithm;
 
+/// Authentication keys used to establish encrypted sessions with the `YubiHSM2`
+pub mod auth_key;
+
 /// Object attributes specifying which operations are allowed to be performed
 pub mod capabilities;
 
-/// Commands supported by the `YubiHSM`.
+/// Commands supported by the `YubiHSM2`
 ///
 /// Functions defined in the `yubihsm::commands` module are reimported
 /// and available from the toplevel `yubihsm` module as well.
@@ -102,11 +105,11 @@ pub mod commands;
 /// Client for the `yubihsm-connector` service
 pub mod connector;
 
-/// Logical partitions within the `YubiHSM`, allowing several applications to share the device
+/// Logical partitions within the `YubiHSM2`, allowing several applications to share the device
 pub mod domains;
 
 #[cfg(feature = "mockhsm")]
-/// Software simulation of the `YubiHSM2` for integration testing,
+/// Software simulation of the `YubiHSM2` for integration testing
 pub mod mockhsm;
 
 /// Objects stored in the `YubiHSM2`
@@ -115,7 +118,7 @@ pub mod mockhsm;
 /// <https://developers.yubico.com/YubiHSM2/Concepts/Object.html>
 pub mod object;
 
-/// Encrypted communication channel to the YubiHSM hardware
+/// Encrypted communication channel to the `YubiHSM2` hardware
 mod securechannel;
 
 /// `YubiHSM2` sessions: primary API for performing HSM operations
@@ -124,18 +127,19 @@ mod securechannel;
 pub mod session;
 
 pub use algorithm::*;
+pub use auth_key::*;
 pub use capabilities::Capability;
 // Import command functions from all submodules
 pub use commands::{
     attest_asymmetric::*, blink::*, delete_object::*, device_info::*, echo::*, export_wrapped::*,
-    generate_asymmetric_key::generate_asymmetric_key, generate_wrap_key::generate_wrap_key,
-    get_logs::*, get_object_info::*, get_opaque::*, get_pubkey::*, import_wrapped::*,
-    list_objects::*, put_asymmetric_key::*, put_auth_key::*, put_hmac_key::*, put_opaque::*,
-    put_otp_aead_key::*, put_wrap_key::*, reset::*, sign_ecdsa::*, sign_eddsa::*,
-    storage_status::*, unwrap_data::*, wrap_data::*, CommandType,
+    generate_asymmetric_key::*, generate_hmac_key::*, generate_wrap_key::*, get_logs::*,
+    get_object_info::*, get_opaque::*, get_pubkey::*, hmac::*, import_wrapped::*, list_objects::*,
+    put_asymmetric_key::*, put_auth_key::*, put_hmac_key::*, put_opaque::*, put_otp_aead_key::*,
+    put_wrap_key::*, reset::*, set_log_index::*, sign_ecdsa::*, sign_eddsa::*, storage_status::*,
+    unwrap_data::*, verify_hmac::*, wrap_data::*, CommandType,
 };
 pub use connector::{Connector, HttpConfig, HttpConnector};
 pub use domains::Domain;
 pub use object::*;
-pub use securechannel::{SessionId, StaticKeys};
+pub use securechannel::SessionId;
 pub use session::{Session, SessionError};

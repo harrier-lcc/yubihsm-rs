@@ -6,15 +6,15 @@ extern crate lazy_static;
 extern crate sha2;
 extern crate yubihsm;
 use yubihsm::{
-    AsymmetricAlgorithm, Capability, Domain, ObjectId, ObjectOrigin, ObjectType, OpaqueAlgorithm,
-    Session, WrapAlgorithm,
+    AsymmetricAlgorithm, AuthAlgorithm, AuthKey, Capability, Domain, HMACAlgorithm, ObjectId,
+    ObjectOrigin, ObjectType, OpaqueAlgorithm, Session, WrapAlgorithm, AUTH_KEY_DEFAULT_ID,
 };
 
 #[cfg(not(feature = "mockhsm"))]
-use yubihsm::HttpConnector;
+use yubihsm::{HttpConnector, AUTH_KEY_DEFAULT_PASSWORD};
 
 #[cfg(feature = "mockhsm")]
-use yubihsm::mockhsm::MockHSM;
+use yubihsm::mockhsm::{MockConnector, MockHSM};
 
 #[cfg(feature = "ring")]
 extern crate ring;
@@ -24,12 +24,6 @@ extern crate untrusted;
 /// Cryptographic test vectors taken from standards documents
 mod test_vectors;
 use test_vectors::*;
-
-/// Default auth key ID slot
-const DEFAULT_AUTH_KEY_ID: ObjectId = 1;
-
-/// Default password
-const DEFAULT_PASSWORD: &str = "password";
 
 /// Key ID to use for testing keygen/signing
 const TEST_KEY_ID: ObjectId = 100;
@@ -56,15 +50,15 @@ pub const EC_P256_PUBLIC_KEY_SIZE: usize = 64;
 type TestSession = Session<HttpConnector>;
 
 #[cfg(feature = "mockhsm")]
-type TestSession = Session<MockHSM>;
+type TestSession = Session<MockConnector>;
 
 #[cfg(not(feature = "mockhsm"))]
 lazy_static! {
     static ref SESSION: ::std::sync::Mutex<TestSession> = {
         let session = Session::create_from_password(
             Default::default(),
-            DEFAULT_AUTH_KEY_ID,
-            DEFAULT_PASSWORD,
+            AUTH_KEY_DEFAULT_ID,
+            AUTH_KEY_DEFAULT_PASSWORD,
             true,
         ).unwrap_or_else(|err| panic!("error creating session: {}", err));
 
@@ -84,7 +78,8 @@ macro_rules! create_session {
 #[cfg(feature = "mockhsm")]
 macro_rules! create_session {
     () => {
-        MockHSM::create_session(DEFAULT_AUTH_KEY_ID, DEFAULT_PASSWORD)
+        MockHSM::new()
+            .create_session(AUTH_KEY_DEFAULT_ID, AuthKey::default())
             .unwrap_or_else(|err| panic!("error creating MockHSM session: {}", err))
     };
 }
@@ -206,7 +201,7 @@ fn echo_test() {
     let echo_response = yubihsm::echo(&mut session, TEST_MESSAGE)
         .unwrap_or_else(|err| panic!("error sending echo: {}", err));
 
-    assert_eq!(TEST_MESSAGE, echo_response.as_ref());
+    assert_eq!(TEST_MESSAGE, echo_response.as_slice());
 }
 
 /// Generate an Ed25519 key
@@ -227,6 +222,39 @@ fn generate_ed25519_key_test() {
     assert_eq!(object_info.object_id, TEST_KEY_ID);
     assert_eq!(object_info.domains, TEST_DOMAINS);
     assert_eq!(object_info.object_type, ObjectType::AsymmetricKey);
+    assert_eq!(object_info.algorithm, algorithm.into());
+    assert_eq!(object_info.origin, ObjectOrigin::Generated);
+    assert_eq!(&object_info.label.to_string().unwrap(), TEST_KEY_LABEL);
+}
+
+/// Generate an Ed25519 key
+#[test]
+fn generate_hmac_key_test() {
+    let mut session = create_session!();
+
+    let algorithm = HMACAlgorithm::HMAC_SHA256;
+    let capabilities = Capability::HMAC_DATA | Capability::HMAC_VERIFY;
+
+    clear_test_key_slot(&mut session, ObjectType::HMACKey);
+
+    let key_id = yubihsm::generate_hmac_key(
+        &mut session,
+        TEST_KEY_ID,
+        TEST_KEY_LABEL.into(),
+        TEST_DOMAINS,
+        capabilities,
+        algorithm,
+    ).unwrap_or_else(|err| panic!("error generating wrap key: {}", err));
+
+    assert_eq!(key_id, TEST_KEY_ID);
+
+    let object_info = yubihsm::get_object_info(&mut session, TEST_KEY_ID, ObjectType::HMACKey)
+        .unwrap_or_else(|err| panic!("error getting object info: {}", err));
+
+    assert_eq!(object_info.capabilities, capabilities);
+    assert_eq!(object_info.object_id, TEST_KEY_ID);
+    assert_eq!(object_info.domains, TEST_DOMAINS);
+    assert_eq!(object_info.object_type, ObjectType::HMACKey);
     assert_eq!(object_info.algorithm, algorithm.into());
     assert_eq!(object_info.origin, ObjectOrigin::Generated);
     assert_eq!(&object_info.label.to_string().unwrap(), TEST_KEY_LABEL);
@@ -301,6 +329,53 @@ fn get_logs_test() {
     yubihsm::get_logs(&mut session).unwrap_or_else(|err| panic!("error getting logs: {}", err));
 }
 
+/// Get random bytes
+#[test]
+fn get_pseudo_random() {
+    let mut session = create_session!();
+
+    let bytes = yubihsm::commands::get_pseudo_random::get_pseudo_random(&mut session, 32)
+        .unwrap_or_else(|err| panic!("error getting random data: {}", err));
+
+    assert_eq!(32, bytes.len());
+}
+
+/// Test HMAC against RFC 4231 test vectors
+#[test]
+fn hmac_test_vectors() {
+    let mut session = create_session!();
+    let algorithm = HMACAlgorithm::HMAC_SHA256;
+    let capabilities = Capability::HMAC_DATA | Capability::HMAC_VERIFY;
+
+    for vector in HMAC_SHA256_TEST_VECTORS {
+        clear_test_key_slot(&mut session, ObjectType::HMACKey);
+
+        let key_id = yubihsm::put_hmac_key(
+            &mut session,
+            TEST_KEY_ID,
+            TEST_KEY_LABEL.into(),
+            TEST_DOMAINS,
+            capabilities,
+            algorithm,
+            vector.key,
+        ).unwrap_or_else(|err| panic!("error putting HMAC key: {}", err));
+
+        assert_eq!(key_id, TEST_KEY_ID);
+
+        let tag = yubihsm::hmac(&mut session, TEST_KEY_ID, vector.msg)
+            .unwrap_or_else(|err| panic!("error computing HMAC of data: {}", err));
+
+        assert_eq!(tag.as_ref(), vector.tag);
+
+        assert!(yubihsm::verify_hmac(&mut session, TEST_KEY_ID, vector.msg, vector.tag).is_ok());
+
+        let mut bad_tag = Vec::from(vector.tag);
+        bad_tag[0] ^= 1;
+
+        assert!(yubihsm::verify_hmac(&mut session, TEST_KEY_ID, vector.msg, bad_tag).is_err());
+    }
+}
+
 /// List the objects in the YubiHSM2
 #[test]
 fn list_objects_test() {
@@ -319,7 +394,7 @@ fn list_objects_test() {
     assert!(
         objects
             .iter()
-            .find(|i| i.id == TEST_KEY_ID && i.object_type == ObjectType::AsymmetricKey)
+            .find(|i| i.object_id == TEST_KEY_ID && i.object_type == ObjectType::AsymmetricKey)
             .is_some()
     );
 }
@@ -372,11 +447,49 @@ fn put_asymmetric_key_test() {
     assert_eq!(&object_info.label.to_string().unwrap(), TEST_KEY_LABEL);
 }
 
+/// Put a new authentication key into the `YubiHSM`
+#[test]
+fn put_auth_key() {
+    let mut session = create_session!();
+    let algorithm = AuthAlgorithm::YUBICO_AES_AUTH;
+    let capabilities = Capability::all();
+    let delegated_capabilities = Capability::all();
+
+    clear_test_key_slot(&mut session, ObjectType::AuthKey);
+
+    let new_auth_key = AuthKey::derive_from_password(TEST_MESSAGE);
+
+    let key_id = yubihsm::put_auth_key(
+        &mut session,
+        TEST_KEY_ID,
+        TEST_KEY_LABEL.into(),
+        TEST_DOMAINS,
+        capabilities,
+        delegated_capabilities,
+        algorithm,
+        new_auth_key,
+    ).unwrap_or_else(|err| panic!("error putting auth key: {}", err));
+
+    assert_eq!(key_id, TEST_KEY_ID);
+
+    let object_info = yubihsm::get_object_info(&mut session, TEST_KEY_ID, ObjectType::AuthKey)
+        .unwrap_or_else(|err| panic!("error getting object info: {}", err));
+
+    assert_eq!(object_info.capabilities, capabilities);
+    assert_eq!(object_info.object_id, TEST_KEY_ID);
+    assert_eq!(object_info.domains, TEST_DOMAINS);
+    assert_eq!(object_info.object_type, ObjectType::AuthKey);
+    assert_eq!(object_info.algorithm, algorithm.into());
+    assert_eq!(object_info.origin, ObjectOrigin::Imported);
+    assert_eq!(&object_info.label.to_string().unwrap(), TEST_KEY_LABEL);
+}
+
 /// Reset the YubiHSM2 to a factory default state
 #[cfg(feature = "mockhsm")]
 #[test]
 fn reset_test() {
-    yubihsm::reset(create_session!());
+    let session = create_session!();
+    yubihsm::reset(session).unwrap();
 }
 
 /// Test ECDSA signatures (using NIST P-256)
@@ -520,7 +633,7 @@ fn wrap_key_test() {
         exported_key_algorithm,
     ).unwrap_or_else(|err| panic!("error generating asymmetric key: {}", err));
 
-    let export_response = yubihsm::export_wrapped(
+    let wrap_data = yubihsm::export_wrapped(
         &mut session,
         TEST_KEY_ID,
         exported_key_type,
@@ -531,12 +644,8 @@ fn wrap_key_test() {
     assert!(yubihsm::delete_object(&mut session, TEST_EXPORTED_KEY_ID, exported_key_type).is_ok());
 
     // Re-import the wrapped key back into the HSM
-    let import_response = yubihsm::import_wrapped(
-        &mut session,
-        TEST_KEY_ID,
-        export_response.nonce,
-        export_response.ciphertext,
-    ).unwrap_or_else(|err| panic!("error importing key: {}", err));
+    let import_response = yubihsm::import_wrapped(&mut session, TEST_KEY_ID, wrap_data)
+        .unwrap_or_else(|err| panic!("error importing key: {}", err));
 
     assert_eq!(import_response.object_type, exported_key_type);
     assert_eq!(import_response.object_id, TEST_EXPORTED_KEY_ID);
@@ -555,15 +664,4 @@ fn wrap_key_test() {
         &imported_key_info.label.to_string().unwrap(),
         TEST_EXPORTED_KEY_LABEL
     );
-}
-
-/// Get random bytes
-#[test]
-fn get_pseudo_random() {
-    let mut session = create_session!();
-
-    let bytes = yubihsm::commands::get_pseudo_random::get_pseudo_random(&mut session, 32)
-        .unwrap_or_else(|err| panic!("error getting random data: {}", err));
-
-    assert_eq!(32, bytes.len());
 }

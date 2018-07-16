@@ -44,7 +44,7 @@ bitflags! {
         /// delete_asymmetric: delete asymmetric key objects
         const DELETE_ASYMMETRIC = 0x200_0000_0000;
 
-        /// delete_authkey: delete AuthKey objects
+        /// delete_auth_key: delete AuthKey objects
         const DELETE_AUTHKEY = 0x100_0000_0000;
 
         /// delete_hmac_key: delete HMACKey objects
@@ -113,13 +113,13 @@ bitflags! {
         /// otp_decrypt: decrypt OTP
         const OTP_DECRYPT = 0x2000_0000;
 
-        /// put_asymmetric: write asymmetric objects
+        /// put_asymmetric_key: write asymmetric objects
         const PUT_ASYMMETRIC =  0x8;
 
-        /// put_authkey: write AuthKey objects
+        /// put_auth_key: write AuthKey objects
         const PUT_AUTHKEY = 0x4;
 
-        /// put_hmackey: write HMACKey objects
+        /// put_hmac_key: write HMACKey objects
         const PUT_HMACKEY = 0x10_0000;
 
         /// put_opaque: Write Opaque Objects
@@ -148,6 +148,43 @@ bitflags! {
 
         /// wrap_data: wrap user-provided data
         const WRAP_DATA = 0x20_0000_0000;
+
+        /// Unknown Capability bit 46
+        const UNKNOWN_BIT46 = 0x4000_0000_0000;
+        /// Unknown Capability bit 47
+        const UNKNOWN_BIT47 = 0x8000_0000_0000;
+        /// Unknown Capability bit 48
+        const UNKNOWN_BIT48 = 0x1_0000_0000_0000;
+        /// Unknown Capability bit 49
+        const UNKNOWN_BIT49 = 0x2_0000_0000_0000;
+        /// Unknown Capability bit 50
+        const UNKNOWN_BIT50 = 0x4_0000_0000_0000;
+        /// Unknown Capability bit 51
+        const UNKNOWN_BIT51 = 0x8_0000_0000_0000;
+        /// Unknown Capability bit 52
+        const UNKNOWN_BIT52 = 0x10_0000_0000_0000;
+        /// Unknown Capability bit 53
+        const UNKNOWN_BIT53 = 0x20_0000_0000_0000;
+        /// Unknown Capability bit 54
+        const UNKNOWN_BIT54 = 0x40_0000_0000_0000;
+        /// Unknown Capability bit 55
+        const UNKNOWN_BIT55 = 0x80_0000_0000_0000;
+        /// Unknown Capability bit 56
+        const UNKNOWN_BIT56 = 0x100_0000_0000_0000;
+        /// Unknown Capability bit 57
+        const UNKNOWN_BIT57 = 0x200_0000_0000_0000;
+        /// Unknown Capability bit 58
+        const UNKNOWN_BIT58 = 0x400_0000_0000_0000;
+        /// Unknown Capability bit 59
+        const UNKNOWN_BIT59 = 0x800_0000_0000_0000;
+        /// Unknown Capability bit 60
+        const UNKNOWN_BIT60 = 0x1000_0000_0000_0000;
+        /// Unknown Capability bit 61
+        const UNKNOWN_BIT61 = 0x2000_0000_0000_0000;
+        /// Unknown Capability bit 62
+        const UNKNOWN_BIT62 = 0x4000_0000_0000_0000;
+        /// Unknown Capability bit 63
+        const UNKNOWN_BIT63 = 0x8000_0000_0000_0000;
     }
 }
 
