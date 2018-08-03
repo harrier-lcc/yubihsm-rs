@@ -3,19 +3,34 @@
 //! <https://developers.yubico.com/YubiHSM2/Commands/Sign_Data_Ecdsa.html>
 
 use super::{Command, Response};
-#[cfg(feature = "mockhsm")]
+#[cfg(all(feature = "mockhsm", not(feature = "doc")))]
 use mockhsm::MockConnector;
 #[cfg(feature = "sha2")]
 use session::{Session, SessionError};
-#[cfg(all(feature = "sha2", not(feature = "mockhsm")))]
+#[cfg(
+    all(
+        feature = "sha2",
+        any(feature = "doc", not(feature = "mockhsm"))
+    )
+)]
 use sha2::{Digest, Sha256};
-#[cfg(all(feature = "sha2", not(feature = "mockhsm")))]
+#[cfg(
+    all(
+        feature = "sha2",
+        any(feature = "doc", not(feature = "mockhsm"))
+    )
+)]
 use Connector;
 use {CommandType, ObjectId};
 
 /// Compute an ECDSA signature of the SHA-256 hash of the given data with the given key ID
-#[cfg(all(feature = "sha2", not(feature = "mockhsm")))]
-pub fn sign_ecdsa_sha2<C: Connector>(
+#[cfg(
+    all(
+        feature = "sha2",
+        any(feature = "doc", not(feature = "mockhsm"))
+    )
+)]
+pub fn sign_ecdsa_sha256<C: Connector>(
     session: &mut Session<C>,
     key_id: ObjectId,
     data: &[u8],
@@ -28,8 +43,8 @@ pub fn sign_ecdsa_sha2<C: Connector>(
 
 /// Compute an ECDSA signature of the SHA-256 hash of the given data with the given key ID
 // NOTE: this version is enabled when we compile with MockHSM support
-#[cfg(feature = "mockhsm")]
-pub fn sign_ecdsa_sha2(
+#[cfg(all(feature = "mockhsm", not(feature = "doc")))]
+pub fn sign_ecdsa_sha256(
     session: &mut Session<MockConnector>,
     key_id: ObjectId,
     data: &[u8],

@@ -47,7 +47,7 @@
 #![crate_type = "rlib"]
 #![deny(warnings, missing_docs, trivial_casts, trivial_numeric_casts)]
 #![deny(unsafe_code, unused_import_braces, unused_qualifications)]
-#![doc(html_root_url = "https://docs.rs/yubihsm/0.13.0")]
+#![doc(html_root_url = "https://docs.rs/yubihsm/0.14.2")]
 
 extern crate aes;
 #[macro_use]
@@ -62,6 +62,8 @@ extern crate failure;
 extern crate failure_derive;
 #[cfg(feature = "hmac")]
 extern crate hmac;
+#[macro_use]
+extern crate log;
 #[cfg(feature = "pbkdf2")]
 extern crate pbkdf2;
 extern crate rand;
@@ -138,6 +140,8 @@ pub use commands::{
     put_wrap_key::*, reset::*, set_log_index::*, sign_ecdsa::*, sign_eddsa::*, storage_status::*,
     unwrap_data::*, verify_hmac::*, wrap_data::*, CommandType,
 };
+#[cfg(feature = "rsa")]
+pub use commands::{sign_rsa_pkcs1v15::*, sign_rsa_pss::*};
 pub use connector::{Connector, HttpConfig, HttpConnector};
 pub use domains::Domain;
 pub use object::*;
